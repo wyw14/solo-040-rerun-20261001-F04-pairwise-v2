@@ -33,6 +33,7 @@ func Router(runtime *Runtime, webDirectory string) http.Handler {
 		api.Get("/plans", plansHandler(runtime))
 		api.Post("/plans", createPlanHandler(runtime))
 		api.Post("/plans/{planID}/signals", publishSignalsHandler(runtime))
+		api.Get("/plans/{planID}/signals", publicationStatusHandler(runtime))
 		api.Post("/plans/{planID}/cancel", cancelPlanHandler(runtime))
 		api.Post("/chambers/{chamberID}/gates/{direction}/open", openGateHandler(runtime))
 		api.Post("/chambers/{chamberID}/gates/{direction}/close", closeGateHandler(runtime))

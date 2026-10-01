@@ -44,7 +44,31 @@ button {
 }
 button:hover { background: #27878a; }
 button.danger { border-color: #ef6f6c; background: #8f3434; }
+button.secondary { border-color: #465761; background: #1d262d; }
+button.secondary:hover { background: #28343c; }
+button.link-btn { border: none; background: none; color: #8fb3c2; min-height: auto; padding: 0 4px; font-size: 12px; text-decoration: underline; }
 button:disabled { opacity: .55; cursor: wait; }
+.vessel-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 13px; }
+.vessel-list li { padding: 6px 0; border-bottom: 1px solid #2c3941; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; border: 1px solid #465761; white-space: nowrap; }
+.b-pending { color: #91a0a8; background: #1d262d; }
+.b-publishing { color: #9ad9ff; border-color: #3a86b5; background: #15303f; animation: pulse 1.2s infinite; }
+.b-published { color: #b8f0c9; border-color: #2e8f57; background: #16331f; }
+.b-skipped { color: #9fe3e1; border-color: #3d8f8d; background: #14302f; }
+.b-failed { color: #ffc4c2; border-color: #c0504d; background: #3c1d1c; }
+.b-compensated { color: #f4dc9a; border-color: #b58a2e; background: #33290f; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.pub-status { font-weight: 600; }
+.pub-succeeded { color: #7ed79b; }
+.pub-running { color: #7cc3ef; }
+.pub-failed { color: #ef6f6c; }
+.pub-cancelled { color: #f2c14e; }
+.cell-error { color: #ef6f6c; font-size: 12px; margin-top: 4px; max-width: 240px; }
+td.actions { white-space: nowrap; }
+td.actions button { padding: 6px 10px; min-height: auto; margin-right: 6px; }
+tr.row-cancelled td { opacity: .7; }
+tr.row-cancelled td:first-child { border-left: 3px solid #f2c14e; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; border-bottom: 1px solid #2c3941; padding: 10px 8px; vertical-align: top; }
 th { color: #91a0a8; font-weight: 600; }

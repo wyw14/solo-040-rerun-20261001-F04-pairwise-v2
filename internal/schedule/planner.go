@@ -22,6 +22,14 @@ type Planner struct {
 	now       func() time.Time
 }
 
+var (
+	ErrPlanNotFound    = errors.New("convoy plan not found")
+	ErrPlanCancelled   = errors.New("convoy plan is cancelled")
+	ErrNoActiveTransit = errors.New("active transit not found")
+	ErrTransitFinished = errors.New("transit is already finished")
+	ErrPlanMismatch    = errors.New("plan and transit do not match")
+)
+
 func NewPlanner(admissionService *admission.Service, recorder *journal.Recorder, now func() time.Time) *Planner {
 	if now == nil {
 		now = time.Now
@@ -82,7 +90,22 @@ func (p *Planner) Active(chamberID string) []model.ConvoyPlan {
 func (p *Planner) require(planID uuid.UUID) (model.ConvoyPlan, error) {
 	plan, ok := p.Get(planID)
 	if !ok {
-		return model.ConvoyPlan{}, errors.New("convoy plan not found")
+		return model.ConvoyPlan{}, ErrPlanNotFound
 	}
 	return plan, nil
+}
+
+// All returns every plan for a chamber, including cancelled ones, so the
+// operations page can retain final publication status.
+func (p *Planner) All(chamberID string) []model.ConvoyPlan {
+	p.mu.RLock()
+	var result []model.ConvoyPlan
+	for _, plan := range p.plans {
+		if plan.ChamberID == chamberID {
+			result = append(result, plan.Clone())
+		}
+	}
+	p.mu.RUnlock()
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.Before(result[j].CreatedAt) })
+	return result
 }
