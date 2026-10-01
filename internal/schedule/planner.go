@@ -79,6 +79,21 @@ func (p *Planner) Active(chamberID string) []model.ConvoyPlan {
 	return result
 }
 
+// List returns every plan for a chamber, including cancelled ones, so the
+// operations page can keep showing final publication outcomes.
+func (p *Planner) List(chamberID string) []model.ConvoyPlan {
+	p.mu.RLock()
+	var result []model.ConvoyPlan
+	for _, plan := range p.plans {
+		if plan.ChamberID == chamberID {
+			result = append(result, plan.Clone())
+		}
+	}
+	p.mu.RUnlock()
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.Before(result[j].CreatedAt) })
+	return result
+}
+
 func (p *Planner) require(planID uuid.UUID) (model.ConvoyPlan, error) {
 	plan, ok := p.Get(planID)
 	if !ok {

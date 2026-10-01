@@ -74,6 +74,12 @@ type SignalState struct {
 	UpdatedAt  time.Time    `json:"updated_at"`
 }
 
+// IdentityMatches reports whether the field signal belongs to the given lock
+// run (cycle) and generation. Compensation must never cross this boundary.
+func (s SignalState) IdentityMatches(cycleID uuid.UUID, generation uint64) bool {
+	return s.CycleID == cycleID && s.Generation == generation
+}
+
 type EmergencyStatus string
 
 const (

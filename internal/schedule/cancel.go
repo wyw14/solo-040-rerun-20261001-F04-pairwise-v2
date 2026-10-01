@@ -16,7 +16,9 @@ type Cancellation struct {
 }
 
 // Cancel reverts queue and field-signal effects as one observable operation.
-func (p *Planner) Cancel(ctx context.Context, planID uuid.UUID, note string, publisher *signal.Publisher, publication signal.Publication) (Cancellation, error) {
+// The caller (schedule.Service) holds the per-plan lock shared with Publish,
+// so a plan can never be published after it is cancelled.
+func (p *Planner) Cancel(ctx context.Context, planID uuid.UUID, note string, publisher *signal.Publisher, cycleID uuid.UUID, generation uint64) (Cancellation, error) {
 	plan, err := p.require(planID)
 	if err != nil {
 		return Cancellation{}, err
@@ -25,7 +27,8 @@ func (p *Planner) Cancel(ctx context.Context, planID uuid.UUID, note string, pub
 		return Cancellation{Plan: plan}, nil
 	}
 	removed := p.admission.RemovePlan(plan.ChamberID, plan)
-	if err := publisher.Compensate(context.WithoutCancel(ctx), plan.ChamberID, publication); err != nil {
+	compensated, err := publisher.CompensatePlan(context.WithoutCancel(ctx), plan, cycleID, generation)
+	if err != nil {
 		p.admission.Restore(plan.ChamberID, removed)
 		return Cancellation{}, errors.Join(errors.New("signal compensation failed"), err)
 	}
@@ -36,10 +39,10 @@ func (p *Planner) Cancel(ctx context.Context, planID uuid.UUID, note string, pub
 	plan.Cancelled = true
 	plan.CancelNote = note
 	p.replace(plan)
-	_, err = p.recorder.Record(context.WithoutCancel(ctx), plan.ChamberID, model.EventPlanCancelled, plan.ID, 0, map[string]any{
-		"note": note, "restored_queue": len(removed), "compensated_signals": len(publication.Published),
+	_, recordErr := p.recorder.Record(context.WithoutCancel(ctx), plan.ChamberID, model.EventPlanCancelled, plan.ID, 0, map[string]any{
+		"note": note, "restored_queue": len(removed), "compensated_signals": compensated,
 	})
 	return Cancellation{
-		Plan: plan, RemovedQueue: len(removed), Compensated: len(publication.Published),
-	}, err
+		Plan: plan, RemovedQueue: len(removed), Compensated: compensated,
+	}, recordErr
 }

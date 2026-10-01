@@ -53,6 +53,27 @@ th { color: #91a0a8; font-weight: 600; }
 .status.warning::before { background: #f2c14e; }
 .status.critical::before { background: #ef6f6c; }
 .message { min-height: 22px; color: #f2c14e; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+.vessel-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.vessel-state, .badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid #465761;
+  background: #1d262d; color: #b9c4ca; width: fit-content;
+}
+.vessel-state::before, .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #91a0a8; }
+.vessel-state.is-pending { color: #91a0a8; }
+.is-pending::before { background: #91a0a8; }
+.is-publishing::before { background: #f2c14e; }
+.badge.is-running, .vessel-state.is-publishing { border-color: #f2c14e; color: #f2c14e; }
+.is-published::before, .badge.is-completed::before { background: #5bc0be; }
+.badge.is-completed, .vessel-state.is-published { border-color: #5bc0be; color: #9fe3e1; }
+.is-failed::before { background: #ef6f6c; }
+.badge.is-failed, .vessel-state.is-failed { border-color: #ef6f6c; color: #ef6f6c; }
+.is-compensated::before { background: #b084cc; }
+.badge.is-compensated, .vessel-state.is-compensated { border-color: #b084cc; color: #d3b8e6; }
+.progress-count { font-weight: 700; margin-bottom: 4px; }
+.publication-error { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+td.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+td.actions button { min-height: 32px; padding: 4px 10px; font-size: 12px; }
 @media (max-width: 780px) {
   header { height: auto; padding: 14px 18px; align-items: flex-start; flex-direction: column; gap: 10px; }
   main { padding: 20px 16px 40px; }

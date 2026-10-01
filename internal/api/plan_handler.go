@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/wyw14/cry-96/internal/model"
-	"github.com/wyw14/cry-96/internal/signal"
 )
 
 type vesselInput struct {
@@ -56,10 +55,19 @@ func plansHandler(runtime *Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		result := make(map[string]any, len(runtime.Chambers))
 		for _, chamberID := range runtime.Chambers {
-			result[chamberID] = runtime.Schedule.Active(chamberID)
+			result[chamberID] = runtime.Schedule.List(chamberID)
 		}
 		writeJSON(w, http.StatusOK, result)
 	}
+}
+
+// currentCycle resolves the transit generation a plan's signals belong to.
+func currentCycle(runtime *Runtime, plan model.ConvoyPlan) (model.TransitCycle, bool) {
+	cycleValue, ok := runtime.Cycles.Current(plan.ChamberID)
+	if !ok || cycleValue.PlanID != plan.ID {
+		return model.TransitCycle{}, false
+	}
+	return cycleValue, true
 }
 
 func publishSignalsHandler(runtime *Runtime) http.HandlerFunc {
@@ -74,17 +82,47 @@ func publishSignalsHandler(runtime *Runtime) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, errors.New("plan not found"))
 			return
 		}
-		cycleValue, ok := runtime.Cycles.Current(plan.ChamberID)
+		if plan.Cancelled {
+			writeError(w, http.StatusConflict, errors.New("cancelled convoy plan cannot be published"))
+			return
+		}
+		cycleValue, ok := currentCycle(runtime, plan)
 		if !ok {
 			writeError(w, http.StatusConflict, errors.New("active transit not found"))
 			return
 		}
-		publication, err := runtime.Schedule.Publish(r.Context(), planID, cycleValue)
+		publication, record, err := runtime.Schedule.Publish(r.Context(), planID, cycleValue)
 		if err != nil {
+			// A settled record (e.g. compensated) is still the authoritative
+			// answer: return it so operators see per-vessel outcomes.
+			if record.PlanID != uuid.Nil {
+				writeJSON(w, http.StatusConflict, map[string]any{
+					"error": err.Error(), "publication": record,
+				})
+				return
+			}
 			writeError(w, http.StatusConflict, err)
 			return
 		}
-		writeJSON(w, http.StatusAccepted, publication)
+		writeJSON(w, http.StatusAccepted, map[string]any{
+			"publication": publication, "progress": record,
+		})
+	}
+}
+
+func publicationStatusHandler(runtime *Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		planID, err := uuid.Parse(chi.URLParam(r, "planID"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		record, ok := runtime.Schedule.Publication(planID)
+		if !ok {
+			writeError(w, http.StatusNotFound, errors.New("publication not found"))
+			return
+		}
+		writeJSON(w, http.StatusOK, record)
 	}
 }
 
@@ -100,24 +138,13 @@ func cancelPlanHandler(runtime *Runtime) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, errors.New("plan not found"))
 			return
 		}
-		cycleValue, ok := runtime.Cycles.Current(plan.ChamberID)
-		publication := signal.Publication{
-			CycleID: cycleValue.ID, Generation: cycleValue.Generation,
-			Previous: make(map[uuid.UUID]model.SignalState),
-		}
-		if ok {
-			for _, vessel := range plan.Vessels {
-				if _, exists := runtime.SignalStore.Get(vessel.ID); exists {
-					publication.Published = append(publication.Published, vessel.ID)
-				}
-			}
-		}
-		result, err := runtime.Schedule.Cancel(r.Context(), planID, "operator cancellation", publication)
+		cycleValue, hasCycle := currentCycle(runtime, plan)
+		result, err := runtime.Schedule.Cancel(r.Context(), planID, "operator cancellation", cycleValue.ID, cycleValue.Generation)
 		if err != nil {
 			writeError(w, http.StatusConflict, err)
 			return
 		}
-		if ok {
+		if hasCycle {
 			_, _ = runtime.Cycles.Cancel(r.Context(), plan.ChamberID, "operator cancellation")
 		}
 		writeJSON(w, http.StatusOK, result)
